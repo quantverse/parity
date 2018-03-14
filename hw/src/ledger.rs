@@ -115,7 +115,7 @@ impl Manager {
 			key_path: RwLock::new(KeyPath::Ethereum),
 		});
 
-		let usb_context = Arc::new(libusb::Context::new()?);
+		let usb_context = Arc::new(libusb::Context::new().expect("libusb_context"));
 		let m = manager.clone();
 
 		// Subscribe to all Ledger devices
@@ -124,7 +124,7 @@ impl Manager {
 		// More info can be found: <http://libusb.sourceforge.net/api-1.0/group__hotplug.html#gae6c5f1add6cc754005549c7259dc35ea>
 		usb_context.register_callback(
 			Some(LEDGER_VID), None, Some(USB_DEVICE_CLASS_DEVICE),
-			Box::new(EventHandler::new(Arc::downgrade(&manager))))?;
+			Box::new(EventHandler::new(Arc::downgrade(&manager)))).expect("usb_callback");
 
 		// Ledger event handler thread
 		thread::Builder::new()
@@ -444,9 +444,14 @@ impl libusb::Hotplug for EventHandler {
 #[test]
 fn smoke() {
 	use rustc_hex::FromHex;
-	let hidapi = Arc::new(Mutex::new(hidapi::HidApi::new().unwrap()));
-	let manager = Manager::new(hidapi.clone(), Arc::new(AtomicBool::new(false))).unwrap();
-	manager.update_devices().unwrap();
+	let hidapi = Arc::new(Mutex::new(hidapi::HidApi::new().expect("HidApi couldn't be instanced")));
+	let manager = match Manager::new(hidapi.clone(), Arc::new(AtomicBool::new(false))) {
+		Ok(m) => m,
+		Err(e) => panic!("ledger::Manager error: {:?}", e),
+	};
+
+	assert_eq!(try_connect_polling(manager.clone(), Duration::from_millis(500)), true);
+
 	for d in &*manager.devices.read() {
 		println!("Device: {:?}", d);
 	}

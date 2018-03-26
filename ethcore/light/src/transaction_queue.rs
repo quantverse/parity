@@ -120,7 +120,7 @@ impl AccountTransactions {
 	}
 }
 
-type Listener = Box<Fn(&[H256]) + Send + Sync>;
+type Listener = Box<Fn(&[SignedTransaction]) + Send + Sync>;
 
 /// Light transaction queue. See module docs for more details.
 #[derive(Default)]
@@ -150,7 +150,7 @@ impl TransactionQueue {
 
 		if self.by_hash.contains_key(&hash) { return Err(transaction::Error::AlreadyImported) }
 
-		let (res, promoted) = match self.by_account.entry(sender) {
+		let (res, _promoted) = match self.by_account.entry(sender) {
 			Entry::Vacant(entry) => {
 				entry.insert(AccountTransactions {
 					cur_nonce: CurrentNonce::Assumed(nonce),
@@ -225,7 +225,7 @@ impl TransactionQueue {
 		};
 
 		self.by_hash.insert(hash, tx);
-		self.notify(&promoted);
+		// self.notify(&promoted);
 		Ok(res)
 	}
 
@@ -353,7 +353,7 @@ impl TransactionQueue {
 	}
 
 	/// Notifies all listeners about new pending transaction.
-	fn notify(&self, hashes: &[H256]) {
+	fn notify(&self, hashes: &[SignedTransaction]) {
 		for listener in &self.listeners {
 			listener(hashes)
 		}

@@ -29,7 +29,7 @@ use v1::helpers::{errors, limit_logs, Subscribers};
 use v1::helpers::light_fetch::LightFetch;
 use v1::metadata::Metadata;
 use v1::traits::EthPubSub;
-use v1::types::{pubsub, RichHeader, Log};
+use v1::types::{pubsub, RichHeader, Log, Transaction};
 
 use ethcore::encoded;
 use ethcore::filter::Filter as EthFilter;
@@ -42,7 +42,7 @@ use parity_reactor::Remote;
 use ethereum_types::H256;
 use bytes::Bytes;
 use parking_lot::{RwLock, Mutex};
-
+use transaction::SignedTransaction;
 type Client = Sink<pubsub::Result>;
 
 /// Eth PubSub implementation.
@@ -173,10 +173,10 @@ impl<C> ChainNotificationHandler<C> {
 	}
 
 	/// Notify all subscribers about new transaction hashes.
-	pub fn new_transactions(&self, hashes: &[H256]) {
+	pub fn new_transactions(&self, hashes: &[SignedTransaction]) {
 		for subscriber in self.transactions_subscribers.read().values() {
 			for hash in hashes {
-				Self::notify(&self.remote, subscriber, pubsub::Result::TransactionHash((*hash).into()));
+				Self::notify(&self.remote, subscriber, pubsub::Result::TransactionHash((Transaction::from_signed_stripped(hash.clone(), 0, 0)).into()));
 			}
 		}
 	}

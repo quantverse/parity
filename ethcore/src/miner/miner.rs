@@ -250,7 +250,7 @@ struct SealingWork {
 pub struct Miner {
 	// NOTE [ToDr]  When locking always lock in this order!
 	transaction_queue: Arc<RwLock<BanningTransactionQueue>>,
-	transaction_listener: RwLock<Vec<Box<Fn(&[H256]) + Send + Sync>>>,
+	transaction_listener: RwLock<Vec<Box<Fn(&[SignedTransaction]) + Send + Sync>>>,
 	sealing_work: Mutex<SealingWork>,
 	next_allowed_reseal: Mutex<Instant>,
 	next_mandatory_reseal: RwLock<Instant>,
@@ -374,7 +374,7 @@ impl Miner {
 	}
 
 	/// Set a callback to be notified about imported transactions' hashes.
-	pub fn add_transactions_listener(&self, f: Box<Fn(&[H256]) + Send + Sync>) {
+	pub fn add_transactions_listener(&self, f: Box<Fn(&[SignedTransaction]) + Send + Sync>) {
 		self.transaction_listener.write().push(f);
 	}
 
@@ -733,17 +733,17 @@ impl Miner {
 						}).unwrap_or(default_origin);
 
 						let details_provider = TransactionDetailsProvider::new(client, &self.service_transaction_action);
-						let hash = transaction.hash();
+						// let hash = transaction.hash();
 						let result = match origin {
 							TransactionOrigin::Local | TransactionOrigin::RetractedBlock => {
-								transaction_queue.add(transaction, origin, insertion_time, condition.clone(), &details_provider)?
+								transaction_queue.add(transaction.clone(), origin, insertion_time, condition.clone(), &details_provider)?
 							},
 							TransactionOrigin::External => {
-								transaction_queue.add_with_banlist(transaction, insertion_time, &details_provider)?
+								transaction_queue.add_with_banlist(transaction.clone(), insertion_time, &details_provider)?
 							},
 						};
 
-						inserted.push(hash);
+						inserted.push(transaction);
 						Ok(result)
 					},
 				}

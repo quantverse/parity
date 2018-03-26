@@ -23,7 +23,7 @@ use v1::helpers::errors;
 use v1::types::{Bytes, H160, H256, U256, H512, U64, TransactionCondition};
 
 /// Transaction
-#[derive(Debug, Default, Clone, PartialEq, Serialize)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Eq)]
 pub struct Transaction {
 	/// Hash
 	pub hash: H256,
@@ -234,6 +234,39 @@ impl Transaction {
 			v: t.original_v().into(),
 			r: signature.r().into(),
 			s: signature.s().into(),
+			condition: None,
+		}
+	}
+
+	/// Convert `SignedTransaction` into RPC Transaction.
+	pub fn from_signed_stripped(t: SignedTransaction, block_number: u64, eip86_transition: u64) -> Transaction {
+		let scheme = if block_number >= eip86_transition { CreateContractAddress::FromCodeHash } else { CreateContractAddress::FromSenderAndNonce };
+		Transaction {
+			hash: t.hash().into(),
+			nonce: t.nonce.into(),
+			block_hash: None,
+			block_number: None,
+			transaction_index: None,
+			from: t.sender().into(),
+			to: match t.action {
+				Action::Create => None,
+				Action::Call(ref address) => Some(address.clone().into())
+			},
+			value: 0.into(),
+			gas_price: t.gas_price.into(),
+			gas: t.gas.into(),
+			input: Bytes::new(t.data.clone()),
+			creates: match t.action {
+				Action::Create => Some(contract_address(scheme, &t.sender(), &t.nonce, &t.data).0.into()),
+				Action::Call(_) => None,
+			},
+			raw: vec![].into(),
+			public_key: None,
+			chain_id: t.chain_id().map(U64::from),
+			standard_v: 0.into(),
+			v: 0.into(),
+			r: 0.into(),
+			s: 0.into(),
 			condition: None,
 		}
 	}
